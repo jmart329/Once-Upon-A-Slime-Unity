@@ -32,7 +32,10 @@ public class PlayerController : MonoBehaviour
     private int currentHealth;
     public Slider healthBar;
     public Text scoreKeeper;
+    public Text questGoal;
+    public Text questText;
     private int score = 0;
+    private int slimeCount;
     private bool canMove;
 
     private Vector3 mDirection;
@@ -42,10 +45,12 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         canMove = true;
+        slimeCount = 10;
         currentHealth = maxHealth;
         healthBar.maxValue = maxHealth;
         healthBar.value = maxHealth;
         scoreKeeper.text = "Slimes Absorbed: " + score.ToString();
+        questGoal.text = "10 more slimes left";
         originalGForce = gForce;
         originalJSpeed = jSpeed;
         originalMSpeed = mSpeed;
@@ -53,13 +58,15 @@ public class PlayerController : MonoBehaviour
         player.GetComponent<Renderer>().enabled = true;
         player.GetComponent<Renderer>().material = neutral;
 
+
         //Debug.Log(blue + " " + red + " " + rock  + " " + neutral);
     }
 
     // Update is called once per frame
     void Update()
     {
-        if(canMove)
+        Invoke("removeText", 2);
+        if (canMove)
         {
             playerMovement();
         }    
@@ -67,6 +74,25 @@ public class PlayerController : MonoBehaviour
         {
             currentHealth -= 20;
             healthBar.value = currentHealth;
+        }
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            if (currentHealth < 80)
+            {
+                currentHealth += 20;
+            } 
+            else
+            {
+                currentHealth = 100;
+            }
+            
+            healthBar.value = currentHealth;
+        }
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            slimeCount = 0;
+            score = 10;
+            questGoal.text = "Head to the Goal!";
         }
         if (currentHealth <= 0)
         {
@@ -77,12 +103,22 @@ public class PlayerController : MonoBehaviour
         else if (cTransform.position.y < -160f)
         {
             canMove=false;
+            FindObjectOfType<GameManager>().EndGame();
         }
         if (Input.GetKeyDown(KeyCode.Q))
         {
             player.GetComponent<Renderer>().material = neutral;
         }
+        if (slimeCount <= 0)
+        {
+            questGoal.text = "Head to the Goal!";
+        }
 
+    }
+
+    private void removeText()
+    {
+        questText.text = "";
     }
 
     private void OnTriggerEnter(Collider other)
@@ -95,7 +131,6 @@ public class PlayerController : MonoBehaviour
             jSpeed = originalJSpeed / 2;
             mSpeed = originalMSpeed / 2;
             StartCoroutine(takeDamageOverTime(other.gameObject, 0.1f));
-            //Debug.Log("mat neutral: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
         if (other.gameObject.name == "water_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(rock.name))
         {
@@ -103,18 +138,15 @@ public class PlayerController : MonoBehaviour
             jSpeed = originalJSpeed / 2;
             mSpeed = originalMSpeed / 2;
             StartCoroutine(takeDamageOverTime(other.gameObject, 0.1f));
-            //Debug.Log("mat rock: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
         else if (other.gameObject.name == "water_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(red.name))
         {
             currentHealth = 0;
             healthBar.value = currentHealth;
-            //Debug.Log("mat red: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
         else if (other.gameObject.name == "water_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(blue.name))
         {
             InvokeRepeating("restoreHealthOverTime", 0.1f, 1);
-            //Debug.Log("mat blue: "+player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
 
         //check for rock collisions
@@ -124,7 +156,6 @@ public class PlayerController : MonoBehaviour
             jSpeed = originalJSpeed / 2;
             mSpeed = originalMSpeed / 2;
             StartCoroutine(takeDamageOverTime(other.gameObject, 0.1f));
-            //Debug.Log("mat neutral: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
         if (other.gameObject.name == "rock_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(red.name))
         {
@@ -132,23 +163,22 @@ public class PlayerController : MonoBehaviour
             jSpeed = originalJSpeed / 2;
             mSpeed = originalMSpeed / 2;
             StartCoroutine(takeDamageOverTime(other.gameObject, 0.1f));
-            //Debug.Log("mat rock: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
         else if (other.gameObject.name == "rock_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(blue.name))
         {
             currentHealth = 0;
             healthBar.value = currentHealth;
-            //Debug.Log("mat red: " + player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
         }
-        /*else if (other.gameObject.name == "rock_collision" && player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(rock.name))
-        {
-            CancelInvoke();
-            //Debug.Log("mat blue: "+player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd());
-        }*/
         if (other.gameObject.name == "Capsule")
         {
             player.GetComponent<Renderer>().material = neutral;
             InvokeRepeating("restoreHealthOverTime", 0.1f, 1);
+        }
+
+        if (other.gameObject.name == "Goal" && score >= 10)
+        {
+            canMove = false;
+            FindObjectOfType<GameManager>().FinishGame();
         }
         
     }
@@ -169,27 +199,30 @@ public class PlayerController : MonoBehaviour
             {
                 Destroy(collision.gameObject);
                 player.GetComponent<Renderer>().material = blue;
-                score += 1;
-                scoreKeeper.text = "Slimes Absorbed: " + score.ToString();
             }
-            else if (collision.gameObject.name == "CubeRed")
+            else if (collision.gameObject.name == "slime_fire")
             {
                 Destroy(collision.gameObject);
                 player.GetComponent<Renderer>().material = red;
-                score += 1;
-                scoreKeeper.text = "Slimes Absorbed: " + score.ToString();
             }
             else if (collision.gameObject.name == "slime_rock")
             {
                 Destroy(collision.gameObject);
                 player.GetComponent<Renderer>().material = rock;
-                score += 1;
-                scoreKeeper.text = "Slimes Absorbed: " + score.ToString();
             }
+            if (slimeCount > 0)
+            {
+                slimeCount-=1;
+                questGoal.text = slimeCount.ToString() + " more slimes left";
+
+            }
+            score += 1;
+            scoreKeeper.text = "Slimes Absorbed: " + score.ToString();
+
         }
         else if (player.GetComponent<Renderer>().material.name.Replace("(Instance)", "").TrimEnd().Equals(blue.name))
         {
-            if (collision.gameObject.name == "CubeRed")
+            if (collision.gameObject.name == "slime_fire")
             {
                 InvokeRepeating("takeDamage", 0.01f, 1);
             }
@@ -204,7 +237,7 @@ public class PlayerController : MonoBehaviour
             {
                 InvokeRepeating("takeDamage", 0.01f, 1);
             }
-            else if (collision.gameObject.name == "CubeRed")
+            else if (collision.gameObject.name == "slime_fire")
             {
                 Destroy(collision.gameObject);
             }
